@@ -1,0 +1,16 @@
+.Rhistory
+.RData
+.Rproj.user/
+rsconnect/
+Thumbs.db
+.DS_Store
+
+# Local-only or sensitive data
+data/communimap_spots_20251107170112.csv
+data/spots 16_01_2026.xlsx
+
+# Generated outputs
+*.html
+
+# Old local deployment script with hard-coded credentials
+deploy the shiny app.R

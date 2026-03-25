@@ -1,0 +1,135 @@
+---
+title: "CommuniMap Glasgow: Comprehensive Analysis Report"
+output: html_document
+params:
+  data: NA
+  title: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(ggplot2)
+library(dplyr)
+library(tidytext)
+library(tidyr)
+library(stringr)
+library(knitr)
+library(readr)
+library(readxl)
+library(lubridate)
+library(sf)
+library(leaflet)
+library(DT)
+library(rmarkdown)
+library(htmltools)
+
+source(file.path("..", "R", "app_config.R"), local = TRUE)
+source(file.path("..", "R", "sentiment_helpers.R"), local = TRUE)
+```
+
+# CoLab Dashboard Analysis: `r params$title`
+
+**Report Date:** `r Sys.Date()`
+
+**Overview:** This report summarises activity within the selected CoLab. It highlights how reports are distributed across Glasgow, how activity changes over time, and what themes appear in the report text.
+
+---
+
+## 1. Understanding the Sentiment Score
+
+The sentiment score gives a simple summary of the tone of the report text. It is based on the **Bing sentiment lexicon**, which classifies sentiment-bearing words as positive or negative.
+
+#### **Formula**
+
+$$\text{Sentiment Score} = \text{mean of sentence polarity scores within each report}$$
+
+Each sentence is treated as one entry, scored from the mix of positive and negative words within that sentence, and then averaged up to the report level. Repeated photo-caption boilerplate is stripped out first.
+
+#### **How to read it**
+
+- **Positive values:** more positive language overall
+- **Around zero:** fairly neutral or mixed language
+- **Negative values:** more negative language overall
+
+This should be treated as a broad guide rather than a perfect measure of how people feel.
+
+---
+
+## 2. Activity Over Time
+
+The chart below shows how many reports were submitted each day. This can help highlight busy periods, quiet periods, or sudden spikes in activity.
+
+```{r ts_plot, fig.height=4, fig.width=9}
+params$data %>%
+  count(CREATED_DATE) %>%
+  ggplot(aes(CREATED_DATE, n)) +
+  geom_col(fill = "#2c3e50") +
+  theme_minimal() +
+  labs(x = "Submission Date", y = "Number of Reports")
+```
+
+---
+
+## 3. Where Reports Are Concentrated
+
+This figure shows the Intermediate Zones with the highest number of reports in the current selection. It gives a quick picture of which areas are most active.
+
+```{r dist_plot, fig.height=5, fig.width=9}
+tmp_dist <- params$data %>%
+  count(IZ_LABEL, sort = TRUE) %>%
+  head(15)
+
+ggplot(tmp_dist, aes(reorder(IZ_LABEL, n), n)) +
+  geom_col(fill = "#18bc9c") +
+  coord_flip() +
+  theme_minimal() +
+  labs(x = "Intermediate Zone", y = "Total Reports")
+```
+
+---
+
+## 4. Example Sentences
+
+This table highlights example sentences with the strongest positive and negative sentiment scores.
+
+```{r sentiment_examples}
+sent_data <- compute_sentiment_examples(params$data) %>%
+  transmute(
+    Sentiment = str_to_title(sentiment),
+    Score = round(sentence_score, 2),
+    Sentence = sentence
+  )
+
+if (nrow(sent_data) > 0) {
+  kable(sent_data)
+} else {
+  cat("No sentiment-bearing sentences available.")
+}
+```
+
+---
+
+## 5. Summary Table
+
+The table below lists the top 20 Intermediate Zones in the selected data, along with the number of reports and a sentiment score where text is available.
+
+```{r table_logic}
+sentence_scores <- compute_sentence_sentiment(params$data)
+
+if (nrow(sentence_scores) > 0) {
+  s_data <- sentence_scores %>%
+    group_by(.report_id, IZ_CODE) %>%
+    summarise(Score = mean(sentence_score), .groups = "drop") %>%
+    group_by(IZ_CODE) %>%
+    summarise(Score = round(mean(Score, na.rm = TRUE), 2), .groups = "drop")
+} else {
+  s_data <- data.frame(IZ_CODE = character(), Score = numeric())
+}
+
+params$data %>%
+  count(IZ_CODE, IZ_LABEL, name = "Count") %>%
+  left_join(s_data, by = "IZ_CODE") %>%
+  arrange(desc(Count)) %>%
+  head(20) %>%
+  kable()
+```

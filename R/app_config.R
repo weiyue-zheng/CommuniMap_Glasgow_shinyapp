@@ -1,0 +1,167 @@
+# App paths and shared constants.
+DATA_FILE <- "data/communimap_spots_20251107170112.csv"
+DATA_DELIM <- ";"
+IZ_SHP <- "shapes/glasgow_intermediate_zones/Glasgow_City_Only.shp"
+DZ_SHP <- "shapes/data_zones/sc_dz_11.shp"
+SIMD_FILE <- "data/simd2020_withinds.csv"
+LOOKUP_FILE <- "data/datazone_to_intermediatezone_lookup_2011.xlsx"
+REPORT_TEMPLATE <- "reports/colab_report.Rmd"
+
+COL_COLAB <- "CATEGORY"
+COL_LAT <- "LATITUDE"
+COL_LON <- "LONGITUDE"
+COL_CREATED_AT <- "CREATED_AT"
+
+IZ_KEY <- "InterZone"
+IZ_NAME <- "Name"
+IZ_POP_RES <- "ResPop2011"
+IZ_POP_TOT <- "TotPop2011"
+
+DZ_KEY <- "DataZone"
+DZ_NAME <- "Name"
+
+TREE_MEASUREMENT_COL <- "TREE_MEASUREMENTS"
+TEXT_ANALYSIS_FIELDS <- c("DESCRIPTION", "ISSUE_DESCRIPTION", "SUCCESS_DETAILS")
+DEFAULT_SUMMARY_LABEL <- "Intermediate Zone (default)"
+NO_DATA_LABEL <- "No Data Found"
+NA_MAP_COLOR <- "#BDBDBD"
+
+SENTIMENT_LEXICON <- tidytext::get_sentiments("bing") %>%
+  mutate(value = if_else(sentiment == "positive", 1, -1))
+
+SENTIMENT_STRIP_PATTERNS <- c(
+  "photograph taken by[^.]*",
+  "photo taken by[^.]*",
+  "photo by[^.]*",
+  "during gallant[^.]*",
+  "open aye photo[- ]walk[^.]*",
+  "open aye photo map participant[^.]*",
+  "this community-submitted photo[^.]*"
+)
+
+COMMON_VARS <- c(
+  "USER_ROLE",
+  "TRAVEL_MODE",
+  "LOG_TYPE",
+  "ACTIVITY_SELECTION",
+  "CHALLENGE_ENCOUNTERED",
+  "OTHER_CHALLENGE_ENCOUNTERED",
+  "PROBLEM",
+  "ISSUE_DESCRIPTION",
+  "POI_TYPE",
+  "DESCRIPTION",
+  "SUCCESS_DETAILS"
+)
+
+# Keep the CoLab field lists explicit so the UI does not rely on
+# prefix guessing from the export column names.
+colab_var_map <- list(
+  "Movement Co-Lab" = c(
+    "MOVEMENT_TYPE",
+    "MOVEMENT_ADDITIONS",
+    "WHEELING_TYPE",
+    "OTHER_WHEELING_TYPE",
+    "REDIRECT_TO_ROUTE_RECORDING",
+    "ROUTE_SELECT",
+    "TYPE_TRAVEL_SUPPORT",
+    "OTHER_TYPE_HELPFUL_INTERESTING"
+  ),
+  "Composting Co-Lab" = c(
+    "WEATHER_COMPOST",
+    "OTHER_WEATHER",
+    "WEIGHT_OF_FOOD_WASTE",
+    "TYPE_OF_WASTE",
+    "OTHER_TYPE_OF_WASTE",
+    "FORMAT_CHOICE",
+    "VISUAL_AND_PHYSICAL_COMPOST_CONDITION",
+    "SOIL_MOISTURE_SENSORY_FEEDBACK",
+    "OUTSIDE_TEMPERATURE",
+    "COMPOST_TEMPERATURE",
+    "COMPOST_PH_LEVEL",
+    "COMPOST_ORGANISMS_AND_ACTIVITY",
+    "COMPOST_MAINTENANCE_TYPE",
+    "OTHER_COMPOST_MAINTANANCE",
+    "COMPOST_IMPACT",
+    "CHALLANGES_AND_BARRIERS",
+    "COMPOTS_FEELING",
+    "OTHER_COMPOST_FEELING"
+  ),
+  "Energy Co-Lab" = c(
+    "ENERGY_IN_YOUR_AREA",
+    "ENERGY_TYPE",
+    "OTHER_ENERGYRELATED_ACTIVITY",
+    "ENERGY_PROJECT_OWNERSHIP",
+    "OTHER_ENERGY_PROJECT_OWNERSHIP",
+    "ENVIRONMENTAL_INTEGRATION",
+    "OTHER_ENVIRONMENTAL_INTEGRATION",
+    "SUSTAINABILTY_TRADE_OFFS_TYPES",
+    "OTHER_CHALLENGES",
+    "SUSTAINABILTY_CHALLENGES",
+    "OTHER_CHALLENGES_IN_THE_PROJECT",
+    "ENGERGY_BENEFICIARY",
+    "OTHER_ENERGY_BENEFICIARY",
+    "ENERGY_POTENTIAL",
+    "OTHER_ENERGY_POTENTIAL",
+    "LOCATION_FEATURES",
+    "POTENTIAL_TRADE_OFFS",
+    "OTHER_POTENTIAL_CHALLENGES",
+    "BARRIER_TYPE",
+    "OTHER_BARRIER_TYPE"
+  ),
+  "Tree Co-Lab" = c(
+    "TREE",
+    "TREE_TYPE",
+    "OTHER_TREE",
+    "TREE_MEASUREMENTS",
+    "TREE_HEIGHT_METHOD",
+    "TREE_HEIGHT_IN_METERS",
+    "ESTIMATED_TREE_HEIGHT",
+    "TREE_CIRCUMFERENCE_METHOD",
+    "CIRCUMFERENCE_IN_CM",
+    "TREE_TRUNK_SIZE",
+    "CANOPY_SPREAD_MEASURING_METHOD",
+    "CANOPY_SPREAD_IN_METRES",
+    "ESTIMATED_CANOPY_SIZE",
+    "TREE_LOCATION",
+    "OTHER_TREE_LOCATION",
+    "GROUND_TYPE",
+    "OTHER_GROUND_TYPE",
+    "SHADE_COVER",
+    "WILDLIFE_SPOTTED",
+    "OTHER_WILDLIFE",
+    "TREES_VOICE"
+  ),
+  "Nature Co-Lab" = c(
+    "NATURE_STORY_TYPE",
+    "NATURE_STORY_SELECTION",
+    "NATURE_STORY_DETAIL",
+    "COMMUNITY_SPACE_TYPE",
+    "OTHER_POINT_OF_INTEREST_DESCRIPTION",
+    "NATURE_OBSERVATION",
+    "NATURE_OBSERVATION_TYPE",
+    "OTHER_NATURE_OBSERVATION",
+    "NATURE_STORY"
+  ),
+  "Water Co-Lab" = c(
+    "TYPE_OF_CHANGE",
+    "DRIVERS_OF_CHANGE",
+    "OTHER_OR_NEUTRAL_DRIVERS_OF_CHANGE",
+    "TYPE_OF_WATER_EVENT",
+    "OTHER_WATER_EVENT",
+    "DEPTH_MEASUREMENT_TECHNIQUE",
+    "WATER_DEPTH",
+    "WATER_DEPTH_ESTIMATE",
+    "TIMESCALE",
+    "WEATHER_GENERAL",
+    "OTHER_WEATHER_GENERAL",
+    "CAUSE_OF_WEATHER_EVENT",
+    "OTHER_CAUSE_WEATHER_EVENT",
+    "IMPACTS",
+    "OTHER_WATER_IMPACTS",
+    "EMOTION"
+  )
+)
+
+EXCLUDE_PAT <- "^(MEDIA_|AUDIO_|PHOTOS$)"
+
+sf::sf_use_s2(FALSE)
