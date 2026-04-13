@@ -4,7 +4,6 @@ This folder contains a Shiny dashboard for exploring CommuniMap reports across G
 
 The app links report locations to Intermediate Zones, adds SIMD context from Data Zones, and provides a set of CoLab dashboards for filtering, mapping, and summarising the data.
 
-The app can start without a bundled CommuniMap report file. In that case, users can upload their own export from the Data Summary tab.
 
 ## What the app does
 
@@ -33,7 +32,7 @@ The app can also use either of these report files if you want a bundled default 
 - `data/communimap_spots_20251107170112.csv`
 - `data/spots 16_01_2026.xlsx` (optional local file)
 
-If no bundled report file is present, the app still starts and waits for the user to upload a valid CommuniMap export.
+
 
 ## Folder layout
 
@@ -179,7 +178,7 @@ If you already have an older local deploy script with real credentials in it, do
 
 ## App structure
 
-Very roughly, the app is organised like this:
+roughly, the app is organised like this:
 
 - `app.R` handles app startup, data loading, UI, and server logic
 - `R/app_config.R` stores shared paths and constants
@@ -190,11 +189,4 @@ Very roughly, the app is organised like this:
 - `data/` holds the report data, SIMD file, and lookup table
 - `shapes/` holds the Intermediate Zone and Data Zone shapefiles
 
-## Notes
 
-- The default data file can be changed by editing `DATA_FILE` in `R/app_config.R`.
-- If `DATA_FILE` does not exist, the app now starts in upload-only mode instead of failing at startup.
-- Uploaded files are joined to Intermediate Zones in the same way as the default dataset.
-- If an upload cannot be read, the app falls back to a friendly status message instead of crashing.
-- The map supports both area summaries and individual report points.
-- `.gitignore` excludes the January workbook, local R history, deployment metadata, and generated HTML files.
