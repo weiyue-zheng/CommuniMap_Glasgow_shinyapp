@@ -79,7 +79,7 @@ If an uploaded file is missing important fields, the upload may fail or some par
 
 ## CoLab variable selection
 
-The app does not guess CoLab fields from column prefixes anymore. Instead, `app.R` uses an explicit `colab_var_map`, which makes it easier to control which variables appear in each CoLab dashboard.
+`app.R` uses an explicit `colab_var_map` to control which variables appear in each CoLab dashboard.
 
 Shared fields such as user role, travel mode, and description are kept separately in `COMMON_VARS`.
 
