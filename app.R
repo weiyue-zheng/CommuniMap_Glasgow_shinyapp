@@ -13,13 +13,15 @@ library(ggplot2)
 library(dplyr)
 library(htmltools)
 library(tidytext)
-
+library(jsonlite)
+options(shiny.maxRequestSize = 200 * 1024^2)
 # =========================
 # APP SETUP
 # =========================
 source("R/app_config.R", local = TRUE)
 source("R/data_helpers.R", local = TRUE)
 source("R/sentiment_helpers.R", local = TRUE)
+# source("R/ask_the_map_helpers.R", local = TRUE)
 
 # =========================
 # LOAD BASE FILES
@@ -742,6 +744,104 @@ server <- function(input, output, session) {
     out[!is.na(out) & nzchar(out)]
   })
   
+  ask_map_run <- eventReactive(input$ask_map_search, {
+    req(input$ask_map_zip)
+    req(input$ask_map_query)
+    req(nzchar(trimws(input$ask_map_query)))
+
+    out_dir <- tempfile(pattern = "ask_map_run_")
+    dir.create(out_dir, recursive = TRUE)
+
+    out_json <- file.path(out_dir, "ask_map_results.json")
+    out_map  <- file.path(out_dir, "ask_map_map.html")
+
+    py_stdout <- tryCatch(
+      system2(
+        command = PYTHON_BIN,
+        args = c(
+          ASK_MAP_SCRIPT,
+          "--zip", input$ask_map_zip$datapath,
+          "--query", input$ask_map_query,
+          "--k", as.character(input$ask_map_k),
+          "--threshold", as.character(input$ask_map_threshold),
+          "--out_json", out_json,
+          "--out_map", out_map
+        ),
+        stdout = TRUE,
+        stderr = TRUE
+      ),
+      error = function(e) {
+        stop(paste("Python execution failed:", conditionMessage(e)))
+      }
+    )
+
+    if (!file.exists(out_json)) {
+      stop(paste(
+        "Ask the Map Python script did not create the output JSON.",
+        paste(py_stdout, collapse = "\n")
+      ))
+    }
+
+    results <- jsonlite::fromJSON(out_json, simplifyDataFrame = TRUE)
+
+    list(
+      results = results,
+      out_json = out_json,
+      out_map = out_map,
+      stdout = py_stdout
+    )
+  })
+
+  output$ask_map_status <- renderText({
+    if (is.null(input$ask_map_zip)) {
+      return("No embedding bundle loaded.")
+    }
+
+    if (is.null(input$ask_map_search) || input$ask_map_search < 1) {
+      return(paste("Embedding bundle selected:", input$ask_map_zip$name))
+    }
+
+    tryCatch({
+      run <- ask_map_run()
+      paste("Query completed. Results:", nrow(run$results))
+    }, error = function(e) {
+      paste("Ask the Map error:", conditionMessage(e))
+    })
+  })
+
+  output$ask_map_table <- renderDT({
+    run <- ask_map_run()
+    res <- run$results
+
+    validate(
+      need(!is.null(res), "No results returned."),
+      need(nrow(res) > 0, "No matches found for this query.")
+    )
+
+    DT::datatable(
+      res,
+      rownames = FALSE,
+      options = list(pageLength = 10, scrollX = TRUE)
+    )
+  })
+
+  output$ask_map_map_ui <- renderUI({
+    run <- ask_map_run()
+    req(file.exists(run$out_map))
+
+    map_html <- paste(
+      readLines(run$out_map, warn = FALSE, encoding = "UTF-8"),
+      collapse = "\n"
+    )
+
+    tags$iframe(
+      srcdoc = map_html,
+      width = "100%",
+      height = "700px",
+      style = "border: none;"
+    )
+  })
+
   output$main_ui <- renderUI({
     colab_names <- active_colabs()
     colab_panels <- lapply(colab_names, function(cn) {
@@ -776,14 +876,15 @@ server <- function(input, output, session) {
       tabPanel(
         "Data Summary",
         fluidPage(
-          layout_sidebar(
-            sidebar = sidebar(
-              width = 360,
+          sidebarLayout(
+            sidebarPanel(
+              width = 4,
               tags$h5("Data Management"),
               fileInput("upload", "Upload new data (.csv, .xlsx, .xls)", accept = c(".csv", ".xlsx", ".xls")),
               br(),
               div(class = "alert alert-info", textOutput("status_msg", inline = TRUE))
             ),
+            mainPanel(
               card(
                 card_header("About the data used in this app"),
                 tags$p(
@@ -793,68 +894,76 @@ server <- function(input, output, session) {
                 ),
                 tags$p(
                   class = "text-muted",
-                "The uploaded data should be an exported file from CommuniMap in the same structure as the original export used to build this dashboard. ",
-                "In particular, the file should contain the key fields needed for mapping and filtering, including category, latitude, longitude."
+                  "The uploaded data should be an exported file from CommuniMap in the same structure as the original export used to build this dashboard. ",
+                  "In particular, the file should contain the key fields needed for mapping and filtering, including category, latitude, longitude."
+                ),
+                tags$p(
+                  class = "text-muted",
+                  "Supported file types are .csv, .xlsx, and .xls. ",
+                  "If the uploaded file does not follow the expected format, the dashboard may not be able to read it correctly."
+                ),
+                tags$p(
+                  class = "text-muted",
+                  "The app also uses external geography and deprivation files in the background: ",
+                  "Intermediate Zone boundaries, Data Zone boundaries, SIMD data, and the 2011 lookup linking Data Zones to Intermediate Zones."
+                )
               ),
-              tags$p(
-                class = "text-muted",
-                "Supported file types are .csv, .xlsx, and .xls. ",
-                "If the uploaded file does not follow the expected format, the dashboard may not be able to read it correctly."
+              br(),
+              card(
+                card_header("Current data source"),
+                verbatimTextOutput("current_data_info")
               ),
-              tags$p(
-                class = "text-muted",
-                "The app also uses external geography and deprivation files in the background: ",
-                "Intermediate Zone boundaries, Data Zone boundaries, SIMD data, and the 2011 lookup linking Data Zones to Intermediate Zones."
+              br(),
+              card(
+                card_header("Counts by CoLab"),
+                DTOutput("dq_counts")
+              ),
+              br(),
+              card(
+                card_header("Spatial Join Statistics"),
+                verbatimTextOutput("dq_join")
               )
-            ),
-            br(),
-            card(
-              card_header("Current data source"),
-              verbatimTextOutput("current_data_info")
-            ),
-            br(),
-            card(card_header("Counts by CoLab"), DTOutput("dq_counts")),
-            br(),
-            card(card_header("Spatial Join Statistics"), verbatimTextOutput("dq_join"))
+            )
           )
         )
       ),
       
-      tabPanel(
-        "SIMD Map",
-        fluidPage(
-          layout_sidebar(
-            sidebar = sidebar(
-              width = 360,
-              tags$h5("SIMD Layer"),
-              tags$p(
-                class = "text-muted small",
-                "This tab shows the original SIMD map at Data Zone level for Glasgow."
-              ),
-              tags$p(
-                class = "text-muted small",
-                "Data Zones are smaller than Intermediate Zones, so this map gives a more detailed view of deprivation patterns across the city."
-              ),
-              tags$p(
-                class = "text-muted small",
-                "The map opens with SIMD rank by default, and you can switch to the individual domain ranks such as income, employment, health, education, access, crime, and housing."
-              ),
-              selectInput(
-                "simd_var",
-                "Choose SIMD variable",
-                choices = c(
-                  "SIMD 2020 Rank" = "SIMD2020v2_Rank",
-                  "Income Domain Rank" = "SIMD2020v2_Income_Domain_Rank",
-                  "Employment Domain Rank" = "SIMD2020_Employment_Domain_Rank",
-                  "Health Domain Rank" = "SIMD2020_Health_Domain_Rank",
-                  "Education Domain Rank" = "SIMD2020_Education_Domain_Rank",
-                  "Access Domain Rank" = "SIMD2020_Access_Domain_Rank",
-                  "Crime Domain Rank" = "SIMD2020_Crime_Domain_Rank",
-                  "Housing Domain Rank" = "SIMD2020_Housing_Domain_Rank"
-                ),
-                selected = "SIMD2020v2_Rank"
-              )
+    tabPanel(
+      "SIMD Map",
+      fluidPage(
+        sidebarLayout(
+          sidebarPanel(
+            width = 4,
+            tags$h5("SIMD Layer"),
+            tags$p(
+              class = "text-muted small",
+              "This tab shows the original SIMD map at Data Zone level for Glasgow."
             ),
+            tags$p(
+              class = "text-muted small",
+              "Data Zones are smaller than Intermediate Zones, so this map gives a more detailed view of deprivation patterns across the city."
+            ),
+            tags$p(
+              class = "text-muted small",
+              "The map opens with SIMD rank by default, and you can switch to the individual domain ranks such as income, employment, health, education, access, crime, and housing."
+            ),
+            selectInput(
+              "simd_var",
+              "Choose SIMD variable",
+              choices = c(
+                "SIMD 2020 Rank" = "SIMD2020v2_Rank",
+                "Income Domain Rank" = "SIMD2020v2_Income_Domain_Rank",
+                "Employment Domain Rank" = "SIMD2020_Employment_Domain_Rank",
+                "Health Domain Rank" = "SIMD2020_Health_Domain_Rank",
+                "Education Domain Rank" = "SIMD2020_Education_Domain_Rank",
+                "Access Domain Rank" = "SIMD2020_Access_Domain_Rank",
+                "Crime Domain Rank" = "SIMD2020_Crime_Domain_Rank",
+                "Housing Domain Rank" = "SIMD2020_Housing_Domain_Rank"
+              ),
+              selected = "SIMD2020v2_Rank"
+            )
+          ),
+          mainPanel(
             card(
               card_header("SIMD Data Zone Map"),
               tags$p(
@@ -865,11 +974,68 @@ server <- function(input, output, session) {
             )
           )
         )
-      ),
+      )
+    ),
       
-      do.call(navbarMenu, c(list("CoLabs"), colab_panels))
+      do.call(navbarMenu, c(list("CoLabs"), colab_panels)),
+
+    tabPanel(
+      "Ask the Map",
+      fluidPage(
+        sidebarLayout(
+          sidebarPanel(
+            width = 4,
+            tags$h5("Ask the Map"),
+            tags$p(
+              class = "text-muted small",
+              "Upload a precomputed embedding bundle and query the map using natural language."
+            ),
+            fileInput(
+              "ask_map_zip",
+              "Upload embedding bundle (.zip)",
+              accept = ".zip"
+            ),
+            textOutput("ask_map_status"),
+            br(),
+            textInput(
+              "ask_map_query",
+              "Query",
+              placeholder = "e.g. flooding in the streets"
+            ),
+            numericInput(
+              "ask_map_k",
+              "Top k results",
+              value = ASK_MAP_DEFAULT_K,
+              min = 1,
+              max = 500
+            ),
+            numericInput(
+              "ask_map_threshold",
+              "Score threshold",
+              value = ASK_MAP_DEFAULT_THRESHOLD,
+              min = 0,
+              max = 1,
+              step = 0.05
+            ),
+            actionButton("ask_map_search", "Search", class = "btn-primary")
+          ),
+          mainPanel(
+            card(
+              card_header("Ask the Map results"),
+              tags$p(
+                class = "text-muted small",
+                "The query searches the uploaded embedding bundle and returns the highest-scoring matched reports."
+              ),
+              uiOutput("ask_map_map_ui"),
+              br(),
+              DTOutput("ask_map_table")
+            )
+          )
+        )
+      )
     )
-  })
+  )
+})
   
   observe({
     lapply(active_colabs(), function(cn) {

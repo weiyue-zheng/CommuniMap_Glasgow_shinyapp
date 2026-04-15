@@ -26,8 +26,8 @@ DEFAULT_SUMMARY_LABEL <- "Intermediate Zone (default)"
 NO_DATA_LABEL <- "No Data Found"
 NA_MAP_COLOR <- "#BDBDBD"
 
-SENTIMENT_LEXICON <- tidytext::get_sentiments("bing") %>%
-  mutate(value = if_else(sentiment == "positive", 1, -1))
+SENTIMENT_LEXICON <- tidytext::get_sentiments("bing") |>
+  dplyr::mutate(value = dplyr::if_else(sentiment == "positive", 1, -1))
 
 SENTIMENT_STRIP_PATTERNS <- c(
   "photograph taken by[^.]*",
@@ -163,5 +163,10 @@ colab_var_map <- list(
 )
 
 EXCLUDE_PAT <- "^(MEDIA_|AUDIO_|PHOTOS$)"
+
+PYTHON_BIN <- "/home/fss6k/miniconda3/envs/GALLANT-WS3/bin/python"
+ASK_MAP_SCRIPT <- "python/ask_the_map.py"
+ASK_MAP_DEFAULT_K <- 50
+ASK_MAP_DEFAULT_THRESHOLD <- 0.3
 
 sf::sf_use_s2(FALSE)
