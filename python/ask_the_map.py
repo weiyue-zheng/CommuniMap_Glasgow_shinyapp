@@ -131,10 +131,12 @@ def build_parser():
     )
 
     p.add_argument(
-        "--query",
-        required=True,
-        help="Natural language query.",
-    )
+            "--query",
+            required=True,
+            nargs="+",
+            help="Natural language query.",
+        )
+
     p.add_argument(
         "--out_json",
         required=True,
@@ -415,6 +417,8 @@ def make_map(results, out_path: str, center=None, zoom_start=12):
 def main():
     parser = build_parser()
     args = parser.parse_args()
+    if isinstance(args.query, list):
+        args.query = " ".join(args.query)
 
     extracted_dir = None
 
